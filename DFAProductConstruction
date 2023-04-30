@@ -1,0 +1,117 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+
+#define MAX_STATES 100
+#define MAX_ALPHABET_SIZE 10
+
+typedef struct {
+    char name[10];
+    bool starting;
+    bool accepting;
+} State;
+
+typedef struct {
+    char input;
+    int from;
+    int to;
+} Transition;
+
+typedef struct {
+    char alphabet[MAX_ALPHABET_SIZE];
+    State states[MAX_STATES];
+    Transition transitions[MAX_STATES * MAX_ALPHABET_SIZE];
+    int num_states;
+    int num_transitions;
+} DFA;
+
+typedef struct {
+    int p;
+    int q;
+} StatePair;
+
+typedef struct {
+    bool reachable;
+    bool accepting;
+    int num_transitions;
+    Transition* transitions;
+} ProductState;
+
+typedef struct {
+    char alphabet[MAX_ALPHABET_SIZE];
+    ProductState states[MAX_STATES * MAX_STATES];
+    int num_states;
+} ProductDFA;
+
+int find_state_index(DFA* dfa, char* name) {
+    for (int i = 0; i < dfa->num_states; i++) {
+        if (strcmp(dfa->states[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void read_dfa_from_json(char* filename, DFA* dfa) {
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        fprintf(stderr, "Error: cannot open file %s\n", filename);
+        exit(1);
+    }
+    char buffer[1024];
+    size_t n = fread(buffer, 1, 1024, file);
+    buffer[n] = '\0';
+    fclose(file);
+    char* pos = buffer;
+    if (strncmp(pos, "{\"type\":\"DFA\",", 15) != 0) {
+        fprintf(stderr, "Error: invalid file format\n");
+        exit(1);
+    }
+    pos += 15;
+    pos = strchr(pos, '[');
+    if (pos == NULL) {
+        fprintf(stderr, "Error: invalid file format\n");
+        exit(1);
+    }
+    pos++;
+    int i = 0;
+    while (*pos != ']') {
+        if (*pos == '{') {
+            pos++;
+            if (strncmp(pos, "\"name\":\"", 8) != 0) {
+                fprintf(stderr, "Error: invalid file format\n");
+                exit(1);
+            }
+            pos += 8;
+            char* name = dfa->states[i].name;
+            while (*pos != '\"' && *pos != '\0') {
+                *name = *pos;
+                name++;
+                pos++;
+            }
+            if (*pos != '\"') {
+                fprintf(stderr, "Error: invalid file format\n");
+                exit(1);
+            }
+            pos++;
+            if (strncmp(pos, ",\"starting\":", 12) != 0) {
+                fprintf(stderr, "Error: invalid file format\n");
+                exit(1);
+            }
+            pos += 12;
+            dfa->states[i].starting = (*pos == 't');
+            pos += 4;
+            if (strncmp(pos, ",\"accepting\":", 13) != 0) {
+                fprintf(stderr, "Error: invalid file format\n");
+                exit(1);
+            }
+            pos += 13;
+            dfa->states[i].accepting = (*pos == 't');
+            pos += 4;
+            i++;
+        }
+        pos++;
+    }
+    dfa->num_states = i;
+    pos = strchr(pos
